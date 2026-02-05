@@ -7,7 +7,8 @@ def create_embedding_layer(vocab_size: int, d_model: int) -> nn.Embedding:
     Create an embedding layer with scaled initialization.
     """
     embedding = nn.Embedding(vocab_size, d_model)
-    # Initialization should be scaled (e.g., standard normal / sqrt(d_model))
+    # Initialization should be scaled (e.g., standard normal / sqrt(d_model)) 
+    # Xavier (o Glorot) is a weight initialization technique for neural networks
     nn.init.normal_(embedding.weight, mean=0.0, std=1.0 / math.sqrt(d_model))
     return embedding
 

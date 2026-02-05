@@ -1,0 +1,11 @@
+[project]
+name = "tensortonic-solutions"
+version = "0.1.0"
+description = "TensorTonic Solutions"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=2.4.2",
+    "pytest>=9.0.2",
+    "torch>=2.10.0",
+]
