@@ -1,71 +1,70 @@
-# Transformer Embedding Layer: A Detailed Explanation
+# Transformer Embedding Layer
 
-Computers process numbers, not words. To bridge this gap in Natural Language Processing, we use Embedding layers. This document explains how they work, specifically within the architecture of a Transformer.
+## 1. Architectural Context
 
----
+The Embedding layer is the actual **Step 1** inside the neural network. It takes the integers (IDs) produced by the [Tokenizer](../transformers-tokenization/explanation.md) and transforms them into continuous dense vectors. Without this layer, the network could not learn similarity relationships between words (e.g., king - man + woman = queen).
 
-## 1. The Concept: What is an Embedding?
+**Flow:**
+`List of IDs` $\rightarrow$ `Embedding Layer` $\rightarrow$ `Dense Vectors + Positional Encoding`
 
-A **Token ID** (e.g., the number `5`) is merely an index. It lacks inherent mathematical meaning—for instance, token `5` isn't "smaller" than token `10` in any linguistic sense.
+In PyTorch, we use `nn.Embedding(vocab_size, d_model)` which acts as a massive lookup table.
 
-An **Embedding** transforms that index into a **dense vector** (a list of floating-point numbers like `[0.12, -0.5, 0.8, ...]`).
+## 2. Initialization and Mathematical Scaling
 
-### In the Code:
-In the `create_embedding_layer` function, we use `nn.Embedding(vocab_size, d_model)`. This creates a massive **lookup table** where:
-- Each row corresponds to a unique token in the vocabulary.
-- Each row contains a vector of size `d_model` (the embedding dimension).
+To maintain training stability (preventing exploding or vanishing gradients), we initialize the weights with a normal distribution:
+$$\text{weights} \sim \mathcal{N}(0, \frac{1}{\sqrt{d_{model}}})$$
 
----
+Furthermore, the original paper scales the embedding output by multiplying it by $\sqrt{d_{model}}$.
+$$ \text{Output} = \text{Embedding}(token) \times \sqrt{d\_{model}} $$
 
-## 2. Initialization: Setting the Stage
+This is done so that, when adding the Positional Encoding later, the mathematical magnitude of the word's meaning dominates over the magnitude of its position.
 
-In Machine Learning, initial weights significantly impact how quickly and effectively a model learns.
+## 3. Tensor Shapes
 
-### Our Approach:
-We use `nn.init.normal_(..., std=1.0 / math.sqrt(d_model))`.
+It is vital to understand how dimensions change here:
 
-### The Rationale:
-If initial values are too large or too small, signals within the neural network can "explode" (become infinite) or "vanish" (become zero). Scaling the standard deviation by the square root of the dimension ensures the initial values stay within a "healthy" range, facilitating stable training from the start.
+- **Input**: Integer tensor of shape `(batch_size, seq_len)`
+- **Output**: Floating-point tensor of shape `(batch_size, seq_len, d_model)`
 
----
+Where:
 
-## 3. The Lookup: Mapping Indices to Vectors
+- `batch_size`: How many sentences are processed in parallel.
+- `seq_len`: How many tokens each sentence has.
+- `d_model`: The length of the dense vector representing each token (e.g., 512).
 
-When you pass a list of tokens to the embedding layer:
+## 4. Visual Data Flow (Mermaid)
 
-```python
-embedded = embedding(tokens)
+```mermaid
+graph LR
+    A["Input IDs<br>Shape: (batch_size, seq_len)"] --> B{"nn.Embedding Table<br>(vocab_size, d_model)"}
+    B --> C["Dense Vectors<br>Shape: (batch_size, seq_len, d_model)"]
+    C --> D{"Multiply by sqrt(d_model)"}
+    D --> E["Output to Positional Encoding"]
 ```
 
-### What happens internally:
-PyTorch retrieves the corresponding row for each token index from its internal table.
-- If you provide **3 tokens**, it returns **3 vectors**.
-- If you provide a matrix of **2x3 tokens**, it returns a tensor of shape **2x3x64** (assuming `d_model=64`).
+## 5. Minimal Executable Example (Unit Example)
 
----
+```python
+import torch
+import torch.nn as nn
+from transformers_embedding import create_embedding_layer
 
-## 4. Mathematical Scaling: The Transformer "Trick"
+# Hyperparameters
+vocab_size = 10000
+d_model = 512
+batch_size = 2
+seq_len = 10
 
-This step is specific to the original *"Attention Is All You Need"* paper:
+# 1. Create Embedding layer
+embedding_layer = create_embedding_layer(vocab_size, d_model)
 
-### The Formula:
-We multiply the resulting vectors by $\sqrt{d_{model}}$.
+# 2. Simulated input tensor (e.g., 2 sentences, 10 tokens each)
+input_ids = torch.randint(0, vocab_size, (batch_size, seq_len))
+print(f"Input Shape: {input_ids.shape}") # (2, 10)
 
-### Why do we do this?
-1.  **Balance:** In Transformers, embeddings are summed with **Positional Encodings** (which provide information about the word's position in the sequence).
-2.  **Magnitude:** Without this scale factor, the embedding values might have a lower magnitude compared to the positional encodings. By multiplying by $\sqrt{d_{model}}$, we ensure the "content" (the embedding) remains dominant over the "position," leading to more stable training gradients.
+# 3. Forward pass
+embedded_output = embedding_layer(input_ids)
 
----
-
-## 5. Data Flow Summary
-
-1.  **Input:** `[batch_size, seq_len]` (Integers/Token IDs).
-2.  **Lookup:** Transformed into `[batch_size, seq_len, d_model]` (Floating-point vectors).
-3.  **Scaling:** All values are multiplied by $\sqrt{d_{model}}$.
-4.  **Output:** Vectors ready to be processed by the Transformer's Attention layers.
-
----
-
-## Why is it called "Learning"?
-
-Although we start with random values, these vectors "move" during training. Through **Stochastic Gradient Descent**, the model adjusts the numbers in the embedding table. Eventually, words with similar meanings end up with vectors that point in similar directions in mathematical space (high cosine similarity).
+# 4. Verify output shape
+print(f"Output Shape: {embedded_output.shape}") # (2, 10, 512)
+```

@@ -1,21 +1,16 @@
 # Layer Normalization
 
-**Layer Normalization** is a fundamental piece of the Transformer architecture. Its goal is to stabilize training and reduce convergence time by normalizing layer activations across the feature dimension.
+## 1. Architectural Context
 
-## Why Do We Need It?
+**Layer Normalization** is a pivotal component in **Phase 3** of the Transformer architecture. Its goal is to stabilize training, allow for higher learning rates, and reduce convergence time by normalizing the activations of intermediate layers across the feature dimension.
 
-In deep networks like the Transformer, activations from each layer can vary significantly in magnitude. This can lead to:
+In deep networks, activations from each layer can vary significantly in magnitude, leading to vanishing or exploding gradients (Internal Covariate Shift). Layer Norm solves this by ensuring that for each sample, activations have a **mean of 0** and a **standard deviation of 1**.
 
-- **Vanishing or Exploding Gradients**: Making training unstable.
-- **Slow Learning**: The network spends a lot of time adapting to changes in the distribution of inputs (Internal Covariate Shift).
+**Flow:**
+`Output from Sublayer (Attention or FFN)` $\rightarrow$ `Residual Addition` $\rightarrow$ `Layer Normalization` $\rightarrow$ `Input to Next Sublayer`
+_(Note: Modern implementations often use "Pre-Norm", applying normalization before the sublayer, but the concept is the same)._
 
-Layer Norm solves this by ensuring that for each sample, activations have a **mean of 0** and a **standard deviation of 1**.
-
-## Anatomy of Layer Norm
-
-Unlike Batch Normalization, which normalizes across different samples in a batch, **Layer Normalization normalizes across the features of a single sample**.
-
-### The Formula
+## 2. Mathematical Foundation
 
 For an input vector $x$ of dimension $d_{model}$:
 
@@ -24,57 +19,71 @@ $$LayerNorm(x) = \gamma \cdot \frac{x - \mu}{\sqrt{\sigma^2 + \epsilon}} + \beta
 Where:
 
 1.  **Mean ($\mu$)**: The average of values in the feature dimension.
-    $$\mu = \frac{1}{d} \sum_{i=1}^{d} x_i$$
+    $$\mu = \frac{1}{d_{model}} \sum_{i=1}^{d_{model}} x_i$$
 2.  **Variance ($\sigma^2$)**: The spread of the values.
-    $$\sigma^2 = \frac{1}{d} \sum_{i=1}^{d} (x_i - \mu)^2$$
-3.  **Epsilon ($\epsilon$)**: A very small constant (e.g., $10^{-6}$) to prevent division by zero.
-4.  **Learnable Parameters ($\gamma$ and $\beta$)**: Scale (gamma) and shift (beta) that allow the network to "de-normalize" if it determines it is beneficial for the task.
+    $$\sigma^2 = \frac{1}{d_{model}} \sum_{i=1}^{d_{model}} (x_i - \mu)^2$$
+3.  **Epsilon ($\epsilon$)**: A microscopic constant (e.g., $10^{-5}$) to prevent division by zero.
+4.  **Learnable Parameters ($\gamma$ and $\beta$)**: Scale (gamma) and shift (beta) that allow the network to "de-normalize" if the optimization process determines that the task requires it.
 
-## Step-by-Step Process Visualization
+## 3. Key Concepts & Implementation Steps
 
-Imagine an input vector: `[1, 2, 3, 4]`
+While PyTorch provides `nn.LayerNorm`, understanding the manual calculation illuminates the "why" behind this layer:
 
-1.  **Calculate Mean**: (1+2+3+4)/4 = **2.5**
-2.  **Calculate Variance**: $((1-2.5)^2 + (2-2.5)^2 + (3-2.5)^2 + (4-2.5)^2) / 4 = **1.25**
-3.  **Normalize**: Subtract mean and divide by the square root of variance.
-    - $(1 - 2.5) / \sqrt{1.25} \approx -1.34$
-    - $(2 - 2.5) / \sqrt{1.25} \approx -0.45$
-    - $(3 - 2.5) / \sqrt{1.25} \approx 0.45$
-    - $(4 - 2.5) / \sqrt{1.25} \approx 1.34$
-4.  **Apply Gamma and Beta**: If $\gamma=1$ and $\beta=0$, the result remains as above.
+1. **Mean and Variance Calculation (`x.mean(dim=-1)`, `x.var(dim=-1)`)**:
+   - _Why?_ We calculate the statistics exclusively across the last dimension (`d_model`) for _each_ token independently. This is what distinguishes it from Batch Normalization (which calculates across the batch size). By treating each token as an independent entity, Layer Norm works perfectly on sequences of varying lengths and with batch sizes of 1 (unlike BatchNorm).
 
-## Visual Impact
+2. **Normalization (`(x - mean) / sqrt(var + eps)`)**:
+   - _Why?_ We shift the distribution so it's centered around 0 (subtract mean) and has a standard spread of 1 (divide by standard deviation). The small $\epsilon$ (epsilon) is added to the variance _before_ taking the square root to prevent a division-by-zero crash in the rare event a token has identical values across all its embedding dimensions.
 
-The following plots illustrate the effect of Layer Normalization on a random tensor. Notice how the distribution of values is centered and scaled.
+3. **Affine Transformation (`x_norm * gamma + beta`)**:
+   - _Why?_ Normalization rigidly forces values into a tight $[ -1, 1 ]$ bell curve. Sometimes, the neural network _needs_ the values to be larger or shifted to activate a ReLU function properly. The parameters $\gamma$ (gamma/scale) and $\beta$ (beta/bias) are initialized to 1 and 0 respectively, but the model learns during training via backpropagation if it needs to alter the distribution.
 
-### Raw Activations
+## 4. Tensor Shapes
 
-![Raw Activations](raw.png)
+Unlike Batch Normalization, Layer Normalization operates independently on each token sequence element, completely ignoring the batch size.
 
-### Normalized Activations
+- **Input ($x$)**: `(batch_size, seq_len, d_model)`
+- **Mean & Variance (Internal)**: Computed over the last dimension (`d_model`).
+- **Output**: `(batch_size, seq_len, d_model)`
 
-![Normalized Activations](normalized.png)
+## 4. Visual Flow (Mermaid)
 
-### Comparative Analysis 🔍
+```mermaid
+graph TD
+    X["Input Tensor x<br>(batch_size, seq_len, d_model)"] --> Sub1
+    X --> Sub2
 
-By comparing the two visualizations above, we can observe the mathematical transformation in action:
+    Sub1["Compute Mean µ<br>across d_model"] --> Norm
+    Sub2["Compute Variance σ²<br>across d_model"] --> Norm
 
-1.  **Re-centering (Mean $\rightarrow$ 0)**:
-    - In the **Raw** image, the distribution is shifted upwards with a mean of **0.83**.
-    - In the **Normalized** image, the mean is effectively **0**. Notice how the baseline (dashed line) now balanced the positive and negative activations.
-2.  **Rescaling (Std Dev $\rightarrow$ 1)**:
-    - The **Raw** values had a standard deviation of **1.26**, with some peaks reaching 3.00.
-    - The **Normalized** values are scaled to a standard deviation of **1**. The previous peak of 3.00 has been "squashed" down to approximately 1.73, making the gradients more predictable and stable during backpropagation.
-3.  **Consistency**:
-    - Regardless of how high or low the original values were, Layer Norm ensures that the input to the next layer follows a standard distribution. This prevents any single feature or sample from dominating the learning process due to high magnitude.
+    Norm["Normalize:<br>(x - µ) / sqrt(σ² + ε)"] --> Scale
 
-## Layer Norm vs Batch Norm
+    Scale["Scale & Shift:<br>γ * norm + β"] --> Y["Output Tensor"]
+```
 
-| Feature                   | Batch Normalization             | Layer Normalization                 |
-| :------------------------ | :------------------------------ | :---------------------------------- |
-| **Normalized across**     | Samples in a batch              | Features of the sample              |
-| **Batch Dependency**      | High (fails with small batches) | None (works the same with batch=1)  |
-| **Main Use Case**         | Convolutional Networks (CNN)    | Sequence Models (Transformers, RNN) |
-| **Training vs Inference** | Behaves differently             | Identical behavior                  |
+## 5. Minimal Executable Example (Unit Example)
 
-In the Transformer, Layer Norm is applied **before** Multi-Head Attention and **before** the Feed-Forward Network (in modern "Pre-LN" designs), or after residual connections (original "Post-LN" design).
+```python
+import torch
+import torch.nn as nn
+
+batch_size = 2
+seq_len = 5
+d_model = 64
+
+# 1. Instantiate the layer (PyTorch has it built-in)
+# It requires the normalized shape (usually just the last dimension)
+layer_norm = nn.LayerNorm(d_model)
+
+# 2. Simulate input from a previous layer
+x = torch.randn(batch_size, seq_len, d_model) * 10 + 5  # Mean 5, high variance
+
+# 3. Apply normalization
+output = layer_norm(x)
+
+# 4. Verify properties
+print(f"Output Shape: {output.shape}") # (2, 5, 64)
+print(f"Mean before: {x[0, 0].mean().item():.3f}")
+print(f"Mean after: {output[0, 0].mean().item():.3f} (Approx 0)")
+print(f"Std dev after: {output[0, 0].std().item():.3f} (Approx 1)")
+```

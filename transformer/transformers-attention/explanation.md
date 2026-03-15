@@ -1,51 +1,96 @@
-# Scaled Dot-Product Attention: Step-by-Step Explanation
+# Scaled Dot-Product Attention
 
-The **Scaled Dot-Product Attention** mechanism is the heart of the Transformer architecture. It allows the model to focus on different parts of the input sequence for each processed element.
+## 1. Architectural Context
 
----
+The **Scaled Dot-Product Attention** mechanism is the heart of the Transformer architecture, corresponding to **Phase 2**. It allows the model to focus on different parts of the input sequence for each processed element.
 
-## 📐 The Mathematical Formula
+Instead of processing words sequentially or with fixed windows (like CNNs), attention computes a dynamic score between every pair of words in the sentence.
 
-The operation is defined as:
+**Flow:**
+`(Q, K, V) from prior layers` $\rightarrow$ `Dot Product & Scaled Softmax` $\rightarrow$ `Context-Aware Vectors`
+
+## 2. Mathematical Foundation
+
+The operation is mathematically defined as:
 
 $$ \text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V $$
 
 Where:
+
 - **$Q$ (Queries):** What we are looking for.
 - **$K$ (Keys):** What we have available to compare against.
 - **$V$ (Values):** The actual information we want to extract.
-- **$d_k$:** Dimension of the keys (used for scaling).
+- **$d_k$:** Dimension of the keys (used for scaling to prevent vanishing gradients in the softmax).
 
----
+## 3. Key Concepts & Implementation Steps
 
-## 🚀 Step-by-Step Implementation
+In the Python implementation of the `Attention` mechanism, several distinct mathematical operations occur sequentially:
 
-### 1. Dot Product Calculation
-We compute the similarity between each query ($Q$) and each key ($K$). This results in a "scores" matrix.
-- **Code:** `scores = torch.matmul(Q, K.transpose(-2, -1))`
-- **Concept:** If a vector $Q_i$ is very similar to a vector $K_j$, the dot product will be a large number.
+1. **Query-Key Dot Product (`torch.matmul(Q, K.transpose(-2, -1))`)**:
+   - _Why?_ We calculate the dot product between every Query and every Key. In linear algebra, a dot product measures alignment or similarity. A high dot product means the Query is very relevant to that Key. The `.transpose(-2, -1)` ensures we only swap the last two dimensions (Sequence Length and Embedding Dimension) so batch processing remains intact.
 
-### 2. Scaling
-We divide the scores by the square root of the key dimension ($\sqrt{d_k}$).
-- **Code:** `scores = scores / math.sqrt(d_k)`
-- **Why?** Without this factor, dot products can grow very large in high dimensions, pushing the *softmax* function into regions where gradients are extremely small (saturation), making training difficult.
+2. **Scaling (`scores / math.sqrt(d_k)`)**:
+   - _Why?_ As the embedding dimension $d_k$ grows, the dot products tend to grow very large in magnitude. When passed to a Softmax function, large values push the function into regions with extremely small gradients (saturation), practically stopping the network from learning. Dividing by $\sqrt{d_k}$ keeps the variance of the scores around 1.
 
-### 3. Mask Application (Optional)
-If we want to prevent the model from "looking" at certain positions (such as padding tokens or future words in decoders), we apply a mask.
-- **Code:** `scores.masked_fill(mask == 0, -1e9)`
-- **Concept:** By setting a very small value (like $-10^9$), the softmax function will assign an attention weight of nearly zero to those positions.
+3. **Masking (`scores.masked_fill(mask == 0, -1e9)` - Optional)**:
+   - _Why?_ In tasks like language translation (Decoders), the model shouldn't "look ahead" at future words. We apply a mask of zeros to these future positions. By replacing those zeros with $-10^9$ before the Softmax, $e^{-10^9}$ becomes exactly zero, completely nullifying their attention weight.
 
-### 4. Softmax Normalization
-We convert the scores into probabilities (attention weights) that sum up to 1.
-- **Code:** `attention_weights = F.softmax(scores, dim=-1)`
-- **Concept:** It determines how relevant each word in the sequence is to the current word.
+4. **Softmax (`F.softmax(..., dim=-1)`)**:
+   - _Why?_ Converts the raw similarity scores into a probability distribution that sums to 1.0 across the sequence dimension. This yields our **Attention Weights**—percentages dictating how much focus to put on each word.
 
-### 5. Weighted Sum of Values
-We multiply the attention weights by the values ($V$).
-- **Code:** `output = torch.matmul(attention_weights, V)`
-- **Concept:** The final result is a combination of information from $V$, where the most "important" parts (according to the weights) have the highest influence.
+5. **Value Multiplication (`torch.matmul(attention_weights, V)`)**:
+   - _Why?_ We multiply our percentage weights by the actual Values matrix $V$. Words with 90% attention will dominate the final vector for that position, while words with 0.1% attention will be ignored.
 
----
+## 4. Tensor Shapes
 
-## 🎨 Visual Summary
-Imagine $Q$ is a question, $K$ are labels on books in a library, and $V$ is the content of those books. The mechanism looks for which labels ($K$) best match your question ($Q$), calculates how much of each book you should read (weights), and creates a final summary (output) based on that content ($V$).
+Understanding the matrix multiplications is crucial to avoid broadcasting errors:
+
+- **Inputs ($Q, K, V$)**: `(batch_size, seq_len, d_k)` (Assuming $d_v = d_k$)
+- **$QK^T$ (Scores Matrix)**: `(batch_size, seq_len, seq_len)` - This represents the attention weight of every word with every other word.
+- **Output ($Z$)**: `(batch_size, seq_len, d_v)`
+
+## 4. Visual Flow (Mermaid)
+
+```mermaid
+graph TD
+    Q["Queries (Q)"] --> MatMul1((MatMul))
+    K["Keys (K)"] --> Transpose["K Transposed"]
+    Transpose --> MatMul1
+    MatMul1 --> Scale["Scale by 1/sqrt(d_k)"]
+    Scale --> Masking["Mask (Opt)"]
+    Masking --> Softmax["Softmax"]
+    Softmax --> MatMul2((MatMul))
+    V["Values (V)"] --> MatMul2
+    MatMul2 --> Out["Contextual Output"]
+```
+
+## 5. Minimal Executable Example (Unit Example)
+
+```python
+import torch
+import torch.nn.functional as F
+import math
+
+batch_size = 2
+seq_len = 4
+d_k = 8 # Dimension of queries and keys
+
+# 1. Simulate Q, K, V (normally coming from linear layers)
+Q = torch.randn(batch_size, seq_len, d_k)
+K = torch.randn(batch_size, seq_len, d_k)
+V = torch.randn(batch_size, seq_len, d_k)
+
+# 2. Dot Product (Similarity scores)
+scores = torch.matmul(Q, K.transpose(-2, -1)) # Shape: (2, 4, 4)
+
+# 3. Scaling
+scaled_scores = scores / math.sqrt(d_k)
+
+# 4. Softmax (Attention Weights)
+attention_weights = F.softmax(scaled_scores, dim=-1) # Shape: (2, 4, 4)
+
+# 5. Multiply by Values
+output = torch.matmul(attention_weights, V)
+
+print(f"Output Shape: {output.shape}") # (2, 4, 8)
+```
