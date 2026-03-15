@@ -1,12 +1,12 @@
 # Transformer Architecture: From Zero to Encoder Block
 
-Welcome to the step-by-step technical guide to building the Transformer architecture the right way: understanding it piece by piece (Bottom-Up).
+Step-by-step technical guide to building the Transformer architecture the right way: understanding it piece by piece (Bottom-Up).
 
 ![Transformer Architecture](./assets/transformer-architecture.png)
 
 *Source: [AI Research Blog - The Transformer Blueprint](https://deeprevision.github.io/posts/001-transformer)*
 
-This folder contains isolated and tested implementations of each critical subcomponent proposed in the original paper _"Attention Is All You Need"_ (Vaswani et al., 2017).
+This folder contains isolated and tested implementations of each critical subcomponent proposed in the original paper ["Attention Is All You Need" (Vaswani et al., 2017)](https://arxiv.org/abs/1706.03762).
 
 ## Learning Roadmap
 
@@ -34,4 +34,4 @@ Follow this technical order to understand how raw text is transformed into compl
 
 ---
 
-> Each subdirectory contains an explanation in `explanation.md`, the implementation in its respective `.py` file, and associated tests. We invite you to navigate in chronological order so you don't lose track of the matrix dimensions (Tensor Shapes).
+> Each subdirectory contains an explanation in `explanation.md`, the implementation in its respective `.py` file, and associated tests. I invite you to navigate in chronological order so you don't lose track of the matrix dimensions (Tensor Shapes).
