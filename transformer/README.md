@@ -2,6 +2,10 @@
 
 Welcome to the step-by-step technical guide to building the Transformer architecture the right way: understanding it piece by piece (Bottom-Up).
 
+![Transformer Architecture](./assets/transformer-architecture.png)
+
+*Source: [AI Research Blog - The Transformer Blueprint](https://deeprevision.github.io/posts/001-transformer)*
+
 This folder contains isolated and tested implementations of each critical subcomponent proposed in the original paper _"Attention Is All You Need"_ (Vaswani et al., 2017).
 
 ## Learning Roadmap
