@@ -6,6 +6,11 @@ Recurrent Neural Networks (RNNs) are designed to process sequential data by main
 
 ## 1. The Mathematical Foundation
 
+![RNN Architecture](/rnn/assets/rnn-architecture.png)
+
+_Figure 1: RNN Architecture. The hidden state $h_t$ is computed as a function of the current input $x_t$ and the previous hidden state $h_{t-1}$._
+
+
 The theoretical equation for a hidden state update is:
 $$h_t = \tanh(W_{hh} h_{t-1} + W_{xh} x_t + b_h)$$
 
@@ -31,15 +36,15 @@ To implement $W_{xh} x_t$ with a batch dimension:
 - $x_t$ has shape `(batch_size, input_dim)`
 - $W_{xh}$ has shape `(hidden_dim, input_dim)`
 
-If we multiply directly: `(batch_size, input_dim) @ (hidden_dim, input_dim)` → **Dimension Mismatch!** ❌
+If we multiply directly: `(batch_size, input_dim) @ (hidden_dim, input_dim)` → **Dimension Mismatch!**
 
 To fix this, we **transpose** the weight matrix:
 
 - $W_{xh}^T$ has shape `(input_dim, hidden_dim)`
-- `x_t @ W_{xh}^T` → `(batch_size, input_dim) @ (input_dim, hidden_dim)` = `(batch_size, hidden_dim)` ✅
+- `x_t @ W_{xh}^T` → `(batch_size, input_dim) @ (input_dim, hidden_dim)` = `(batch_size, hidden_dim)`
 
 The same logic applies to the hidden state transformation:  
-`h_prev @ W_hh^T` → `(batch_size, hidden_dim) @ (hidden_dim, hidden_dim)` = `(batch_size, hidden_dim)` ✅
+`h_prev @ W_hh^T` → `(batch_size, hidden_dim) @ (hidden_dim, hidden_dim)` = `(batch_size, hidden_dim)`
 
 ---
 
