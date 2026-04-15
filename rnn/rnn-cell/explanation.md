@@ -1,6 +1,6 @@
 # Understanding the RNN Cell: A Deep Dive into Low-Level Implementation
 
-Recurrent Neural Networks (RNNs) are designed to process sequential data by maintaining a "memory" (hidden state) of past inputs. This document explains the implementation details of the single RNN cell you just built.
+Recurrent Neural Networks (RNNs) are designed to process sequential data by maintaining a "memory" (hidden state) of past inputs. This document explains the implementation details of the single RNN cell.
 
 ---
 
