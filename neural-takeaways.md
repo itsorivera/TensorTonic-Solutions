@@ -8,7 +8,7 @@ This technical memorandum outlines the architectural evolution of attention mech
 The 2014 introduction of attention was not a failure of vision, but a solution to the **Information Bottleneck** inherent in fixed-length vector representations.
 
 *   **Technical Constraint:** Traditional Encoder-Decoder RNNs (Sutskever et al.) forced the compression of a variable-length input sequence $$S$$ into a single hidden state vector $$h$$. This resulted in significant vanishing gradients and information loss for sequences where $$|S| > h_{dim}$$.
-*   **The Innovation:** **Additive Attention** (also known as Bahdanau Attention). It introduced a learned alignment function that allowed the decoder to perform a weighted sum over all encoder hidden states.
+*   **The Innovation:** **Additive Attention** (also known as Bahdanau Attention, 2014). It introduced a learned alignment function that allowed the decoder to perform a weighted sum over all encoder hidden states.
 *   **Why it didn't spark the "Boom":** The architecture remained **inherently sequential**. The computational complexity was tied to the recurrence $$O(n)$$, preventing massive parallelization on GPGPU hardware. It was an "evolutionary patch" on a fundamentally unscalable paradigm (RNNs).
 
 ```mermaid
